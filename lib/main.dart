@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert'; // For JSON parsing
-import 'package:xml/xml.dart' as xml; // For XML parsing
+import 'package:xml/xml.dart' as xml;
 
 void main() {
   runApp(MyApp());
