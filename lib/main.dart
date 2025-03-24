@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert'; // For JSON parsing
 import 'package:xml/xml.dart' as xml;
+import 'package:shared_preferences/shared_preferences.dart'; // For saving last used URL
 
 void main() {
   runApp(MyApp());
@@ -12,7 +13,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(), // Dark mode for modern look
+      theme: ThemeData.dark(),
       home: HomeScreen(),
     );
   }
@@ -24,21 +25,52 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _responseText = "Press the button to fetch data";
+  String _responseText = "Enter an API URL and press Fetch";
   int? _statusCode;
-  bool _isLoading = false; // Track loading state
+  bool _isLoading = false;
+  TextEditingController _urlController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedUrl();
+  }
+
+  // Load last used API URL from storage
+  Future<void> _loadSavedUrl() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? savedUrl = prefs.getString('api_url');
+    if (savedUrl != null) {
+      _urlController.text = savedUrl;
+    }
+  }
+
+  // Save entered API URL to storage
+  Future<void> _saveUrl(String url) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('api_url', url);
+  }
 
   Future<void> fetchData() async {
+    String apiUrl = _urlController.text.trim();
+    if (apiUrl.isEmpty || Uri.tryParse(apiUrl) == null || !Uri.tryParse(apiUrl)!.isAbsolute) {
+      setState(() {
+        _responseText = "Invalid URL. Please enter a valid API URL.";
+        _statusCode = null;
+      });
+      return;
+    }
+
+    await _saveUrl(apiUrl); // Save API URL for next time
+
     setState(() {
       _isLoading = true;
       _responseText = "Fetching data...";
       _statusCode = null;
     });
 
-    final url = Uri.parse('https://bb50-125-18-213-98.ngrok-free.app/hello/hi'); // Your MuleSoft API
-
     try {
-      final response = await http.get(url);
+      final response = await http.get(Uri.parse(apiUrl));
       setState(() {
         _statusCode = response.statusCode;
       });
@@ -80,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() {
-      _isLoading = false; // Stop loading
+      _isLoading = false;
     });
   }
 
@@ -94,8 +126,18 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            TextField(
+              controller: _urlController,
+              decoration: InputDecoration(
+                labelText: "API URL",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+            ),
+            SizedBox(height: 15),
             _isLoading
-                ? CircularProgressIndicator() // Show loader when fetching
+                ? CircularProgressIndicator()
                 : Column(
               children: [
                 Text(
@@ -103,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                if (_statusCode != null) // Show status code if available
+                if (_statusCode != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
@@ -115,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _isLoading ? null : fetchData, // Disable when loading
+              onPressed: _isLoading ? null : fetchData,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                 textStyle: TextStyle(fontSize: 18),
